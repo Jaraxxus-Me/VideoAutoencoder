@@ -119,7 +119,7 @@ def test(data, dataloader, encoder_3d, encoder_traj, decoder, rotate, log):
 
         pose_save_dir = os.path.join(args.savepath, f"Poses")
         os.makedirs(pose_save_dir, exist_ok=True)
-        true_camera_file = os.path.dirname(data[b_i][0]).replace('dataset_square', 'RealEstate10K')+'.txt'
+        true_camera_file = os.path.dirname(data[b_i][0]).replace('dataset', 'RealEstate10K')+'.txt'
         with open(true_camera_file) as f:
             f.readline() # remove line 0
             poses = np.loadtxt(f)

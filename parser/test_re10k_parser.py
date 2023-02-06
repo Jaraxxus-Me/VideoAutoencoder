@@ -8,7 +8,7 @@ def test_parser():
                         help='Name of the dataset')
     parser.add_argument('--savepath', type=str, default='log/test',
                         help='Path for checkpoints and logs')
-    parser.add_argument('--resume', type=str, default=None,
+    parser.add_argument('--resume', type=str, default='re10k.ckpt',
                         help='Checkpoint file to resume')
     parser.add_argument('--worker', type=int, default=8,
                         help='number of dataloader threads')
