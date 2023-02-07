@@ -4,9 +4,9 @@ def train_parser():
     parser = argparse.ArgumentParser(description='Video Auto-encoder Training Options')
 
     # experiment specifics
-    parser.add_argument('--dataset', default='RealEstate10K',
+    parser.add_argument('--dataset', default='BOP',
                         help='Name of the dataset.')
-    parser.add_argument('--savepath', type=str, default='log/test',
+    parser.add_argument('--savepath', type=str, default='log/train_local/Try7/ycbv2_gt',
                         help='Path for checkpoints and logs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Checkpoint file to resume')
@@ -14,7 +14,7 @@ def train_parser():
                         help='number of dataloader threads')
 
     # for displays
-    parser.add_argument('--valid_freq', type=int, default=2000,
+    parser.add_argument('--valid_freq', type=int, default=50,
                         help='frequency of validation')
 
 
@@ -27,18 +27,18 @@ def train_parser():
                         help='decoder style')
     parser.add_argument('--padding_mode', type=str, default='zeros',
                         help='grid sampling padding mode')
-    parser.add_argument('--scale_rotate', type=float, default=0.01,
+    parser.add_argument('--scale_rotate', type=float, default=100.0,
                         help='scale for rotation values')
-    parser.add_argument('--scale_translate', type=float, default=0.01,
+    parser.add_argument('--scale_translate', type=float, default=100.0,
                         help='scale for translation values')
 
     # training options
-    parser.add_argument('--epochs', type=int, default=2,
+    parser.add_argument('--epochs', type=int, default=5000,
                         help='number of epochs to train')
     parser.add_argument('--bsize', type=int, default=4,
                         help='batch size for training')
 
-    parser.add_argument('--lr', type=float, default=2e-4,
+    parser.add_argument('--lr', type=float, default=1e-4,
                         help='learning rate')
     parser.add_argument('--d_lr', type=float, default=4e-4,
                         help='learning rate for gan discriminator')

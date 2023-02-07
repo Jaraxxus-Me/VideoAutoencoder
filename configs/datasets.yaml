@@ -6,6 +6,14 @@ RealEstate10K:
   test_path: /home/airlab/SONY2022/VideoAutoencoder/dataset/test/
   input_size: 256
 
+BOP:
+  name: BOP
+  train_path: /home/airlab/storage/airlab/VideoAutoencoder/BOP/train/ycb2
+  test_path: /home/airlab/storage/airlab/VideoAutoencoder/BOP/train/ycb2
+  mask_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/obj_000002/mask
+  cam_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/obj_000002/scene_camera.json
+  input_size: 256
+
 Matterport3D_Preatrain:
   name: Matterport3D_Preatrain
   train_path: /home/zihang/developer/data/matterport/images/train_mini/

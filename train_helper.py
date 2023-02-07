@@ -10,7 +10,7 @@ from models.submodule import VGGPerceptualLoss, stn
 perceptual_loss = VGGPerceptualLoss()
 perceptual_loss = nn.DataParallel(perceptual_loss).cuda()
 
-def compute_reconstruction_loss(args, encoder_3d, encoder_traj, rotate, decoder, clips, return_output=False):
+def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, decoder, clips, return_output=False):
     b, t, c, h, w = clips.size()
     codes = encoder_3d(clips[:,0])
     _,C,H,W,D = codes.size()
@@ -18,9 +18,11 @@ def compute_reconstruction_loss(args, encoder_3d, encoder_traj, rotate, decoder,
 
     clips_ref = clips[:,0:1].repeat(1,t,1,1,1)
     clips_pair = torch.cat([clips_ref, clips], dim=2)
-    pair_tensor = clips_pair.view(b*t, c*2, h, w)
-    poses = encoder_traj(pair_tensor)
-    theta = euler2mat(poses)
+    # pair_tensor = clips_pair.view(b*t, c*2, h, w)
+    # poses = encoder_traj(pair_tensor)
+    # theta = euler2mat(poses)
+
+    theta = gt_traj[:, (t-1):].reshape(b*t, 3, 4)
 
     rot_codes = rotate(code_t, theta)
     output = decoder(rot_codes)
@@ -35,15 +37,17 @@ def compute_reconstruction_loss(args, encoder_3d, encoder_traj, rotate, decoder,
     else:
         return loss
 
-def compute_consistency_loss(args, encoder_3d, encoder_traj, clips):
+def compute_consistency_loss(args, encoder_3d, gt_traj, clips):
     b, t, c, h, w = clips.size()
     code0 = encoder_3d(clips[:,0])
     _,C,H,W,D = code0.size()
 
     clips_pair = torch.cat([clips[:,:-1], clips[:,1:]], dim=2)
-    pair_tensor = clips_pair.view(b*(t-1), c*2, h, w)
-    poses = encoder_traj(pair_tensor)  # b*t-1 x 6
-    theta = euler2mat(poses).reshape(b, t-1, 3, 4)  # b x 3 x 4
+    # pair_tensor = clips_pair.view(b*(t-1), c*2, h, w)
+    # poses = encoder_traj(pair_tensor)  # b*t-1 x 6
+    # theta = euler2mat(poses).reshape(b, t-1, 3, 4)  # b x 3 x 4
+
+    theta = gt_traj[:, :(t-1)]
 
     code = code0
     codes = []
@@ -105,11 +109,13 @@ def get_pose_window(theta, clip_in):
 def visualize_synthesis(args, dataloader, encoder_3d, encoder_traj, decoder, rotate, log, n_iter):
     n_b = len(dataloader)
     n_eval_video = 20
-    scene_update_freq = 12
-    for b_i, vid_clips in enumerate(dataloader):
-        encoder_3d.eval(); decoder.eval(); rotate.eval(); encoder_traj.eval();
+    scene_update_freq = 6
+    for b_i, data in enumerate(dataloader):
+        # encoder_3d.eval(); decoder.eval(); rotate.eval(); encoder_traj.eval();
+        encoder_3d.eval(); decoder.eval(); rotate.eval();
         fend = 30
-        vid_clips = vid_clips.cuda()[:,:fend]
+        vid_clips = data[0].cuda()[:,:fend]
+        gt_traj = data[1].cuda()
         b, t, c, h, w = vid_clips.size()
         clips = vid_clips.view(b * t, c, h, w)
         preds = []
@@ -122,9 +128,10 @@ def visualize_synthesis(args, dataloader, encoder_3d, encoder_traj, decoder, rot
             elif i % scene_update_freq == 0:
                 scene_rep = encoder_3d(pred)  # Update scene representation
                 scene_index = i
-            clips_in = torch.stack([clips[scene_index], clips[i+1]])
-            pose = get_pose_window(encoder_traj, clips_in)   # 2, 6
-            z = euler2mat(pose[1:])
+            # clips_in = torch.stack([clips[scene_index], clips[i+1]])
+            # pose = get_pose_window(encoder_traj, clips_in)   # 2, 6
+            # z = euler2mat(pose[1:])
+            z = gt_traj[:,(t-1):][:, i+1]
             rot_codes = rotate(scene_rep, z)
             output = decoder(rot_codes)
             pred = F.interpolate(output, (h, w), mode='bilinear')  # T*B x 3 x H x W
@@ -165,13 +172,13 @@ class AverageMeter(object):
 def adjust_lr(args, optimizer, epoch, batch, n_b):
     iteration = batch + epoch * n_b
 
-    if iteration <= 80000 * args.lr_adj:
+    if iteration <= 75 * args.lr_adj:
         lr = args.lr
-    elif iteration <= 120000 * args.lr_adj:
+    elif iteration <= 125 * args.lr_adj:
         lr = args.lr * 0.5
-    elif iteration <= 160000 * args.lr_adj:
+    elif iteration <= 200 * args.lr_adj:
         lr = args.lr * 0.25
-    elif iteration <= 200000 * args.lr_adj:
+    elif iteration <= 250 * args.lr_adj:
         lr = args.lr * 0.125
     else:
         lr = args.lr * 0.0625

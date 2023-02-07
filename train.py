@@ -25,14 +25,15 @@ def main():
     for key, value in sorted(vars(args).items()):
         log.info(str(key) + ': ' + str(value))
 
-    TrainData, _ = D.dataloader(args.dataset, args.clip_length, args.interval)
-    _, ValidData = D.dataloader(args.dataset, args.clip_length, args.interval, load_all_frames=True)
+    TrainData, _ = D.dataloader(args.dataset, args.clip_length, args.interval, 0)
+    ValidData, _ = D.dataloader(args.dataset, args.clip_length, args.interval, 0)
+    ValidData = ValidData[0:1]
     log.info(f'#Train vid: {len(TrainData)}')
 
-    TrainLoader = DataLoader(DL.ImageFloder(TrainData, args.dataset),
+    TrainLoader = DataLoader(DL.MaskedImageFloder(TrainData, args.dataset),
         batch_size=args.bsize, shuffle=True, num_workers=args.worker,drop_last=True
     )
-    ValidLoader = DataLoader(DL.ImageFloder(ValidData, args.dataset),
+    ValidLoader = DataLoader(DL.MaskedImageFloder(ValidData, args.dataset),
         batch_size=1, shuffle=False, num_workers=0,drop_last=True
     )
 
@@ -94,7 +95,7 @@ def train(TrainLoader, ValidLoader,
     torch.cuda.synchronize()
     b_s = time.perf_counter()
 
-    for b_i, vid_clips in enumerate(TrainLoader):
+    for b_i, data in enumerate(TrainLoader):
         encoder_3d.train()
         encoder_traj.train()
         decoder.train()
@@ -102,14 +103,15 @@ def train(TrainLoader, ValidLoader,
 
         adjust_lr(args, optimizer_g, epoch, b_i, n_b)
         adjust_lr(args, optimizer_d, epoch, b_i, n_b)
-        vid_clips = vid_clips.cuda()
+        vid_clips = data[0].cuda()
+        gt_traj = data[1].cuda()
         n_iter = b_i + n_b * epoch
 
         optimizer_g.zero_grad()
 
-        l_r, fake_clips = compute_reconstruction_loss(args, encoder_3d, encoder_traj,
+        l_r, fake_clips = compute_reconstruction_loss(args, encoder_3d, gt_traj,
                                                        rotate, decoder, vid_clips, return_output=True)
-        l_c = compute_consistency_loss(args, encoder_3d, encoder_traj, vid_clips)
+        l_c = compute_consistency_loss(args, encoder_3d, gt_traj, vid_clips)
         l_g = compute_gan_loss(netd, fake_clips)
         sum_loss = l_r + args.lambda_voxel * l_c + args.lambda_gan * l_g
         sum_loss.backward()
@@ -129,9 +131,9 @@ def train(TrainLoader, ValidLoader,
 
         if n_iter > 0 and n_iter % args.valid_freq == 0:
             with torch.no_grad():
-                _ = test_reconstruction(ValidLoader, encoder_3d, encoder_traj, decoder, rotate,
+                _ = test_reconstruction(ValidLoader, encoder_3d, gt_traj, decoder, rotate,
                                     log, epoch, n_iter, writer)
-                output_dir = visualize_synthesis(args, ValidLoader, encoder_3d, encoder_traj,
+                output_dir = visualize_synthesis(args, ValidLoader, encoder_3d, gt_traj,
                                                  decoder, rotate, log, n_iter)
                 avg_psnr, _, _ = test_synthesis(output_dir)
 
@@ -148,15 +150,17 @@ def train(TrainLoader, ValidLoader,
 def test_reconstruction(dataloader, encoder_3d, encoder_traj, decoder, rotate, log, epoch, n_iter, writer):
     _loss = AverageMeter()
     n_b = len(dataloader)
-    for b_i, vid_clips in enumerate(dataloader):
+    for b_i, data in enumerate(dataloader):
         encoder_3d.eval()
-        encoder_traj.eval()
+        # encoder_traj.eval()
         decoder.eval()
         rotate.eval()
         b_s = time.perf_counter()
+        vid_clips = data[0].cuda()
+        gt_traj = data[1].cuda()
         vid_clips = vid_clips.cuda()
         with torch.no_grad():
-            l_r = compute_reconstruction_loss(args, encoder_3d, encoder_traj,
+            l_r = compute_reconstruction_loss(args, encoder_3d, gt_traj,
                                               rotate, decoder, vid_clips)
         writer.add_scalar('Reconstruction Loss (Valid)', l_r, n_iter)
         _loss.update(l_r.item())
