@@ -6,7 +6,7 @@ def train_parser():
     # experiment specifics
     parser.add_argument('--dataset', default='BOP',
                         help='Name of the dataset.')
-    parser.add_argument('--savepath', type=str, default='log/train_local/Try7/ycbv2_gt',
+    parser.add_argument('--savepath', type=str, default='log/train_local/Try6/ycbv2_gt_0trans_jsbw8',
                         help='Path for checkpoints and logs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Checkpoint file to resume')
@@ -49,7 +49,7 @@ def train_parser():
                         help='re-weight perceptual loss')
     parser.add_argument('--lambda_gan', type=float, default=0.01,
                         help='re-weight gan loss')
-    parser.add_argument('--lambda_voxel', type=float, default=1,
+    parser.add_argument('--lambda_voxel', type=float, default=0.0,
                         help='re-weight voxel consistency loss')
 
     parser.add_argument('--interval', type=int, default=1,
