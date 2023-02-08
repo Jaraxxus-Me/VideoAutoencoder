@@ -4,9 +4,9 @@ def train_parser():
     parser = argparse.ArgumentParser(description='Video Auto-encoder Training Options')
 
     # experiment specifics
-    parser.add_argument('--dataset', default='BOP',
+    parser.add_argument('--dataset', default='OWID',
                         help='Name of the dataset.')
-    parser.add_argument('--savepath', type=str, default='log/train_local/Try6/ycbv2_gt_0trans_jsbw8',
+    parser.add_argument('--savepath', type=str, default='log/train_local/Try8/OWID_0',
                         help='Path for checkpoints and logs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Checkpoint file to resume')
@@ -14,7 +14,7 @@ def train_parser():
                         help='number of dataloader threads')
 
     # for displays
-    parser.add_argument('--valid_freq', type=int, default=50,
+    parser.add_argument('--valid_freq', type=int, default=20,
                         help='frequency of validation')
 
 
@@ -38,7 +38,7 @@ def train_parser():
     parser.add_argument('--bsize', type=int, default=4,
                         help='batch size for training')
 
-    parser.add_argument('--lr', type=float, default=1e-4,
+    parser.add_argument('--lr', type=float, default=5e-5,
                         help='learning rate')
     parser.add_argument('--d_lr', type=float, default=4e-4,
                         help='learning rate for gan discriminator')

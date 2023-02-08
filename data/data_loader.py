@@ -29,17 +29,6 @@ def masked_rgb_preprocess(images, masks):
     return images
 
 def cam2pose_rel(cam, ids):
-    # relative to previous frame
-    rela_r = torch.eye(3).unsqueeze(0).repeat(len(ids)-1, 1, 1)
-    rela_t = torch.zeros((len(ids)-1, 3, 1))
-    for i, img_id in enumerate(ids[1:]):
-        curr_r = torch.Tensor(cam[str(img_id)]["cam_R_w2c"]).reshape(3, 3)
-        curr_t = torch.Tensor(cam[str(img_id)]["cam_t_w2c"]).reshape(3, 1)
-        pre_r = torch.Tensor(cam[str(img_id-1)]["cam_R_w2c"]).reshape(3, 3)
-        pre_t = torch.Tensor(cam[str(img_id-1)]["cam_t_w2c"]).reshape(3, 1)
-        rela_r[i] = curr_r @ pre_r.T
-        # rela_t[i, :] = curr_t - pre_t
-    rela_pose_0 = torch.cat([rela_r, rela_t], dim=-1)
     # relative to the first frame
     rela_r = torch.eye(3).unsqueeze(0).repeat(len(ids), 1, 1)
     rela_t = torch.zeros((len(ids), 3, 1))
@@ -51,8 +40,19 @@ def cam2pose_rel(cam, ids):
         rela_r[i] = curr_r @ pre_r.T
         # rela_t[i, :] = curr_t - pre_t
     rela_pose_1 = torch.cat([rela_r, rela_t], dim=-1)
+    # relative to the first frame, inverse
+    rela_r = torch.eye(3).unsqueeze(0).repeat(len(ids), 1, 1)
+    rela_t = torch.zeros((len(ids), 3, 1))
+    pre_r = torch.Tensor(cam[str(ids[0])]["cam_R_w2c"]).reshape(3, 3)
+    pre_t = torch.Tensor(cam[str(ids[0])]["cam_t_w2c"]).reshape(3, 1)
+    for i, img_id in enumerate(ids):
+        curr_r = torch.Tensor(cam[str(img_id)]["cam_R_w2c"]).reshape(3, 3)
+        curr_t = torch.Tensor(cam[str(img_id)]["cam_t_w2c"]).reshape(3, 1)
+        rela_r[i] = (curr_r @ pre_r.T).T
+        # rela_t[i, :] = curr_t - pre_t
+    rela_pose_t = torch.cat([rela_r, rela_t], dim=-1)
     # both input
-    rela_pose = torch.cat([rela_pose_0, rela_pose_1], dim=0)
+    rela_pose = torch.cat([rela_pose_1, rela_pose_t], dim=0)
     return rela_pose
 
 class ImageFloder(data.Dataset):

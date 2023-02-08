@@ -39,8 +39,9 @@ def main():
 
     # get auto-encoder
     encoder_3d = Encoder3D(args)
-    encoder_traj = EncoderTraj(args)
+    # encoder_traj = EncoderTraj(args)
     rotate = Rotate(args)
+    rotate_inv = RotateInv(args)
     decoder = Decoder(args)
 
     # get discriminator
@@ -48,12 +49,13 @@ def main():
 
     # cuda
     encoder_3d = nn.DataParallel(encoder_3d).cuda()
-    encoder_traj = nn.DataParallel(encoder_traj).cuda()
+    # encoder_traj = nn.DataParallel(encoder_traj).cuda()
     rotate = nn.DataParallel(rotate).cuda()
+    rotate_inv = nn.DataParallel(rotate_inv).cuda()
     decoder = nn.DataParallel(decoder).cuda()
     netd = nn.DataParallel(netd).cuda()
 
-    all_param = list(encoder_traj.parameters()) + list(encoder_3d.parameters()) + \
+    all_param = list(rotate_inv.parameters()) + list(encoder_3d.parameters()) + \
                 list(decoder.parameters()) + list(rotate.parameters())
 
     optimizer_g = torch.optim.Adam(all_param, lr=args.lr, betas=(0,0.999))
@@ -66,7 +68,6 @@ def main():
             log.info("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
             encoder_3d.load_state_dict(checkpoint['encoder_3d'],strict=False)
-            encoder_traj.load_state_dict(checkpoint['encoder_traj'],strict=False)
             decoder.load_state_dict(checkpoint['decoder'],strict=False)
             rotate.load_state_dict(checkpoint['rotate'],strict=False)
             log.info("=> loaded checkpoint '{}'".format(args.resume))
@@ -81,14 +82,14 @@ def main():
     for epoch in range(args.epochs):
         log.info('This is {}-th epoch'.format(epoch))
         train(TrainLoader, ValidLoader,
-              encoder_3d, encoder_traj, rotate, decoder, netd,
+              encoder_3d, rotate, rotate_inv, decoder, netd,
               optimizer_g, optimizer_d, log, epoch, writer)
 
     log.info('full training time = {:.2f} Hours'.format((time.time() - start_full_time) / 3600))
 
 cur_max_psnr = 0
 def train(TrainLoader, ValidLoader,
-          encoder_3d, encoder_traj, rotate, decoder, netd,
+          encoder_3d, rotate, rotate_inv, decoder, netd,
           optimizer_g, optimizer_d, log, epoch, writer):
     _loss = AverageMeter()
     n_b = len(TrainLoader)
@@ -97,7 +98,6 @@ def train(TrainLoader, ValidLoader,
 
     for b_i, data in enumerate(TrainLoader):
         encoder_3d.train()
-        encoder_traj.train()
         decoder.train()
         rotate.train()
 
@@ -110,10 +110,10 @@ def train(TrainLoader, ValidLoader,
         optimizer_g.zero_grad()
 
         l_r, fake_clips = compute_reconstruction_loss(args, encoder_3d, gt_traj,
-                                                       rotate, decoder, vid_clips, return_output=True)
-        l_c = compute_consistency_loss(args, encoder_3d, gt_traj, vid_clips)
+                                                       rotate, rotate_inv, decoder, vid_clips, return_output=True)
+        # l_c = compute_consistency_loss(args, encoder_3d, gt_traj, vid_clips)
         l_g = compute_gan_loss(netd, fake_clips)
-        sum_loss = l_r + args.lambda_voxel * l_c + args.lambda_gan * l_g
+        sum_loss = l_r + args.lambda_gan * l_g
         sum_loss.backward()
         optimizer_g.step()
 
@@ -131,23 +131,23 @@ def train(TrainLoader, ValidLoader,
 
         if n_iter > 0 and n_iter % args.valid_freq == 0:
             with torch.no_grad():
-                _ = test_reconstruction(ValidLoader, encoder_3d, gt_traj, decoder, rotate,
+                _ = test_reconstruction(ValidLoader, encoder_3d, decoder, rotate, rotate_inv,
                                     log, epoch, n_iter, writer)
-                output_dir = visualize_synthesis(args, ValidLoader, encoder_3d, gt_traj,
-                                                 decoder, rotate, log, n_iter)
+                output_dir = visualize_synthesis(args, ValidLoader, encoder_3d,
+                                                 decoder, rotate, rotate_inv, log, n_iter)
                 avg_psnr, _, _ = test_synthesis(output_dir)
 
             log.info("Saving new checkpoint.")
             savefilename = args.savepath + '/checkpoint.tar'
-            save_checkpoint(encoder_3d, encoder_traj, rotate, decoder, savefilename)
+            save_checkpoint(encoder_3d, rotate, decoder, savefilename)
             global cur_max_psnr
             if avg_psnr > cur_max_psnr:
                 log.info("Saving new best checkpoint.")
                 cur_max_psnr = avg_psnr
                 savefilename = args.savepath + '/checkpoint_best.tar'
-                save_checkpoint(encoder_3d, encoder_traj, rotate, decoder, savefilename)
+                save_checkpoint(encoder_3d, rotate, decoder, savefilename)
 
-def test_reconstruction(dataloader, encoder_3d, encoder_traj, decoder, rotate, log, epoch, n_iter, writer):
+def test_reconstruction(dataloader, encoder_3d, decoder, rotate, rotate_inv, log, epoch, n_iter, writer):
     _loss = AverageMeter()
     n_b = len(dataloader)
     for b_i, data in enumerate(dataloader):
@@ -161,7 +161,7 @@ def test_reconstruction(dataloader, encoder_3d, encoder_traj, decoder, rotate, l
         vid_clips = vid_clips.cuda()
         with torch.no_grad():
             l_r = compute_reconstruction_loss(args, encoder_3d, gt_traj,
-                                              rotate, decoder, vid_clips)
+                                              rotate, rotate_inv, decoder, vid_clips)
         writer.add_scalar('Reconstruction Loss (Valid)', l_r, n_iter)
         _loss.update(l_r.item())
         info = 'Loss = {:.3f}({:.3f})'.format(_loss.val, _loss.avg)

@@ -94,3 +94,16 @@ class Rotate(nn.Module):
         rot_code = F.leaky_relu(self.conv3d_1(rot_code))
         rot_code = F.leaky_relu(self.conv3d_2(rot_code))
         return rot_code
+
+class RotateInv(nn.Module):
+    def __init__(self, args):
+        super(RotateInv, self).__init__()
+        self.padding_mode = args.padding_mode
+        self.conv3d_1 = nn.Conv3d(64,64,3,padding=1)
+        self.conv3d_2 = nn.Conv3d(64,64,3,padding=1)
+
+    def forward(self, code, theta):
+        rot_code = stn(code, theta, self.padding_mode)
+        rot_code = F.leaky_relu(self.conv3d_1(rot_code))
+        rot_code = F.leaky_relu(self.conv3d_2(rot_code))
+        return rot_code

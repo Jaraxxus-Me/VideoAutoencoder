@@ -10,27 +10,36 @@ from models.submodule import VGGPerceptualLoss, stn
 perceptual_loss = VGGPerceptualLoss()
 perceptual_loss = nn.DataParallel(perceptual_loss).cuda()
 
-def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, decoder, clips, return_output=False):
+def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, rotate_inv, decoder, clips, return_output=False):
     b, t, c, h, w = clips.size()
-    codes = encoder_3d(clips[:,0])
+    codes = encoder_3d(clips.flatten(0, 1))
     _,C,H,W,D = codes.size()
-    code_t = codes.unsqueeze(1).repeat(1, t, 1, 1, 1, 1).view(b * t, C, H, W, D)
+    # code_t = codes.unsqueeze(1).repeat(1, t, 1, 1, 1, 1).view(b * t, C, H, W, D)
 
-    clips_ref = clips[:,0:1].repeat(1,t,1,1,1)
-    clips_pair = torch.cat([clips_ref, clips], dim=2)
+    # clips_ref = clips[:,0:1].repeat(1,t,1,1,1)
+    # clips_pair = torch.cat([clips_ref, clips], dim=2)
     # pair_tensor = clips_pair.view(b*t, c*2, h, w)
     # poses = encoder_traj(pair_tensor)
     # theta = euler2mat(poses)
 
-    theta = gt_traj[:, (t-1):].reshape(b*t, 3, 4)
-
-    rot_codes = rotate(code_t, theta)
-    output = decoder(rot_codes)
+    # affine
+    theta = gt_traj[:, t:].reshape(b*t, 3, 4)
+    rot_codes_inv = rotate(codes, theta).view(b, t, -1, H, W, D)
+    # aggregate
+    rot_codes_inv = rot_codes_inv.sum(dim=1, keepdim=True).repeat(1, t, 1, 1, 1, 1).view(b * t, -1, H, W, D)
+    # inverse affine
+    theta = gt_traj[:, :t].reshape(b*t, 3, 4)
+    rot_codes_inv = rotate_inv(rot_codes_inv, theta)
+    # decode
+    output = decoder(rot_codes_inv)
 
     output = F.interpolate(output, (h, w), mode='bilinear')
     target = clips.view(b*t, c, h, w)
     loss_perceptual = perceptual_loss(output, target)
-    loss_l1 = (output - target).abs().mean()
+    residual = output - target
+    # residual = residual.view(b, t, c, h, w)
+    # residual = residual[:,-1]
+    loss_l1 = residual.abs().mean()
     loss = loss_perceptual.mean() * args.lambda_perc + loss_l1 * args.lambda_l1
     if return_output:
         return loss, output
@@ -106,7 +115,7 @@ def get_pose_window(theta, clip_in):
     poses = theta(pair_tensor)
     return poses
 
-def visualize_synthesis(args, dataloader, encoder_3d, encoder_traj, decoder, rotate, log, n_iter):
+def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_inv, log, n_iter):
     n_b = len(dataloader)
     n_eval_video = 20
     scene_update_freq = 6
@@ -123,17 +132,26 @@ def visualize_synthesis(args, dataloader, encoder_3d, encoder_traj, decoder, rot
             if i == 0:
                 preds = []
                 preds.append(clips[0:1])
-                scene_rep = encoder_3d(vid_clips[:, 0])  # Only use T=0. Size: B x c x h x w x d
+                scene_rep = encoder_3d(vid_clips.flatten(0,1))  # Only use T=0. Size: B x c x h x w x d
+                H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
                 scene_index = 0
+                # affine
+                theta = gt_traj[:, t:].reshape(b*t, 3, 4)
+                rot_codes_inv = rotate(scene_rep, theta).view(b, t, -1, H, W, D)
+                # aggregate
+                rot_codes_inv = rot_codes_inv.sum(dim=1, keepdim=True).view(b, -1, H, W, D)
             elif i % scene_update_freq == 0:
                 scene_rep = encoder_3d(pred)  # Update scene representation
+                H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
                 scene_index = i
             # clips_in = torch.stack([clips[scene_index], clips[i+1]])
             # pose = get_pose_window(encoder_traj, clips_in)   # 2, 6
             # z = euler2mat(pose[1:])
-            z = gt_traj[:,(t-1):][:, i+1]
-            rot_codes = rotate(scene_rep, z)
-            output = decoder(rot_codes)
+            # inverse affine
+            theta = gt_traj[:, :t][:, i+1]
+            rot_codes_local = rotate_inv(rot_codes_inv, theta)
+            # decode
+            output = decoder(rot_codes_local)
             pred = F.interpolate(output, (h, w), mode='bilinear')  # T*B x 3 x H x W
             pred = torch.clamp(pred, 0, 1)
             preds.append(pred)
@@ -187,10 +205,10 @@ def adjust_lr(args, optimizer, epoch, batch, n_b):
         param_group['lr'] = lr
 
 
-def save_checkpoint(encoder_3d, encoder_traj, rotate, decoder, savefilename):
+def save_checkpoint(encoder_3d, rotate, decoder, savefilename):
     torch.save({
         'encoder_3d': encoder_3d.state_dict(),
-        'encoder_traj': encoder_traj.state_dict(),
+        # 'encoder_traj': encoder_traj.state_dict(),
         'rotate': rotate.state_dict(),
         'decoder': decoder.state_dict(),
     }, savefilename)
