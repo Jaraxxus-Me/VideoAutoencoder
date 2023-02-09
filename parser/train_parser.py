@@ -6,7 +6,7 @@ def train_parser():
     # experiment specifics
     parser.add_argument('--dataset', default='OWID',
                         help='Name of the dataset.')
-    parser.add_argument('--savepath', type=str, default='log/train_local/Try8/OWID_0',
+    parser.add_argument('--savepath', type=str, default='log/train_local/Try8/OWID_2',
                         help='Path for checkpoints and logs')
     parser.add_argument('--resume', type=str, default=None,
                         help='Checkpoint file to resume')
@@ -14,7 +14,7 @@ def train_parser():
                         help='number of dataloader threads')
 
     # for displays
-    parser.add_argument('--valid_freq', type=int, default=20,
+    parser.add_argument('--valid_freq', type=int, default=9000,
                         help='frequency of validation')
 
 
@@ -27,20 +27,16 @@ def train_parser():
                         help='decoder style')
     parser.add_argument('--padding_mode', type=str, default='zeros',
                         help='grid sampling padding mode')
-    parser.add_argument('--scale_rotate', type=float, default=100.0,
-                        help='scale for rotation values')
-    parser.add_argument('--scale_translate', type=float, default=100.0,
-                        help='scale for translation values')
 
     # training options
-    parser.add_argument('--epochs', type=int, default=5000,
+    parser.add_argument('--epochs', type=int, default=50,
                         help='number of epochs to train')
     parser.add_argument('--bsize', type=int, default=4,
                         help='batch size for training')
 
     parser.add_argument('--lr', type=float, default=5e-5,
                         help='learning rate')
-    parser.add_argument('--d_lr', type=float, default=4e-4,
+    parser.add_argument('--d_lr', type=float, default=1e-4,
                         help='learning rate for gan discriminator')
 
     parser.add_argument('--lambda_l1', type=float, default=10,
@@ -49,10 +45,10 @@ def train_parser():
                         help='re-weight perceptual loss')
     parser.add_argument('--lambda_gan', type=float, default=0.01,
                         help='re-weight gan loss')
-    parser.add_argument('--lambda_voxel', type=float, default=0.0,
-                        help='re-weight voxel consistency loss')
+    # parser.add_argument('--lambda_voxel', type=float, default=0.0,
+    #                     help='re-weight voxel consistency loss')
 
-    parser.add_argument('--interval', type=int, default=1,
+    parser.add_argument('--interval', type=int, default=2,
                         help='interval between clip frames')
     parser.add_argument('--clip_length', type=int, default=6,
                         help='number of frames in the training clip')

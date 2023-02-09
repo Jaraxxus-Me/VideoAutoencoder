@@ -16,10 +16,9 @@ BOP:
 
 OWID:
   name: OWID
-  train_path: /home/airlab/storage/airlab/VideoAutoencoder/BOP/train/ycb2
-  test_path: /home/airlab/storage/airlab/VideoAutoencoder/BOP/train/ycb2
-  mask_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/obj_000002/mask
-  cam_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/obj_000002/scene_camera.json
+  train_path: /home/airlab/storage/airlab/data_0108/data/InsDet/OWID/P1
+  cam_path: /home/airlab/storage/airlab/data_0108/data/InsDet/OWID/P1/scene_camera_all.json
+  sz_path: /home/airlab/storage/airlab/data_0108/data/InsDet/OWID/P1/sz.npz
   input_size: 256
 
 Matterport3D_Preatrain:

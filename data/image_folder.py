@@ -1,4 +1,5 @@
 import yaml
+import os
 from glob import glob
 import numpy as np
 
@@ -8,7 +9,7 @@ with open('configs/datasets.yaml') as f:
 
 IMG_EXT = ['png', 'jpg']
 
-def dataloader(dataset, clip_length, interval, n_valid=20, is_train=True, load_all_frames=False):
+def dataloader(dataset, clip_length, interval, n_valid=10, is_train=True, load_all_frames=False):
     if is_train:
         data_path = config[dataset]['train_path']
     else:
@@ -18,24 +19,24 @@ def dataloader(dataset, clip_length, interval, n_valid=20, is_train=True, load_a
         raise RuntimeError(f"dataset does not support {'train' if is_train else 'test'} mode.")
 
     video_paths = sorted(glob(data_path+'/*/'))
+    video_paths = [os.path.join(v_path, 'rgb') for v_path in video_paths]
     batches_train, batches_valid = [], []
     for index in range(len(video_paths)):
         vpath = video_paths[index]
         fnames = sum([sorted(glob(vpath+f'/*.{ext}')) for ext in IMG_EXT],[])
-        fnames = [fnames[i] for i in [0, 10, 20, 30, 40, 50]]
-        # fnames = fnames[::interval]
+        fnames = fnames[::interval]
 
         video_batches = []
         if load_all_frames:
             video_batches.append(fnames)
         else:
-            while len(video_batches)<100:
+            while 1:
                 if len(fnames) < clip_length:
                     break
 
                 frame_sequence = fnames[:clip_length]
                 video_batches.append(frame_sequence)
-                # fnames = fnames[1:]  # skip first one
+                fnames = fnames[1:]  # skip first one
 
         if index >= n_valid:
             batches_train.extend(video_batches)

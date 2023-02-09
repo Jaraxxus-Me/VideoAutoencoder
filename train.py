@@ -25,15 +25,14 @@ def main():
     for key, value in sorted(vars(args).items()):
         log.info(str(key) + ': ' + str(value))
 
-    TrainData, _ = D.dataloader(args.dataset, args.clip_length, args.interval, 0)
-    ValidData, _ = D.dataloader(args.dataset, args.clip_length, args.interval, 0)
-    ValidData = ValidData[0:1]
+    TrainData, _ = D.dataloader(args.dataset, args.clip_length, args.interval)
+    _, ValidData = D.dataloader(args.dataset, args.clip_length, args.interval)
     log.info(f'#Train vid: {len(TrainData)}')
 
-    TrainLoader = DataLoader(DL.MaskedImageFloder(TrainData, args.dataset),
+    TrainLoader = DataLoader(DL.MaskedImageFloder(TrainData, args.dataset, log),
         batch_size=args.bsize, shuffle=True, num_workers=args.worker,drop_last=True
     )
-    ValidLoader = DataLoader(DL.MaskedImageFloder(ValidData, args.dataset),
+    ValidLoader = DataLoader(DL.MaskedImageFloder(ValidData, args.dataset, log),
         batch_size=1, shuffle=False, num_workers=0,drop_last=True
     )
 
@@ -135,7 +134,7 @@ def train(TrainLoader, ValidLoader,
                                     log, epoch, n_iter, writer)
                 output_dir = visualize_synthesis(args, ValidLoader, encoder_3d,
                                                  decoder, rotate, rotate_inv, log, n_iter)
-                avg_psnr, _, _ = test_synthesis(output_dir)
+                avg_psnr, _, _ = test_synthesis(output_dir, log, epoch)
 
             log.info("Saving new checkpoint.")
             savefilename = args.savepath + '/checkpoint.tar'
@@ -170,7 +169,7 @@ def test_reconstruction(dataloader, encoder_3d, decoder, rotate, rotate_inv, log
             epoch, b_i, n_b, info, b_t))
     return _loss.avg
 
-def test_synthesis(output_dir):
+def test_synthesis(output_dir, log, epoch):
     values_psnr, values_ssim, values_lpips = [], [], []
     for i in range(20):
         video1 = output_dir+'/eval_video_{}_pred.mp4'.format(i)
@@ -183,6 +182,9 @@ def test_synthesis(output_dir):
     avg_psnr = np.mean(np.array(values_psnr))
     avg_ssim = np.mean(np.array(values_ssim))
     avg_lpips = np.mean(np.array(values_lpips))
+
+    log.info('Validation at Epoch: {}, PSNR: {}'.format(
+    epoch, avg_psnr))
 
     return (avg_psnr, avg_ssim, avg_lpips)
 

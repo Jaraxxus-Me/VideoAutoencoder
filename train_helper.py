@@ -122,8 +122,8 @@ def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_in
     for b_i, data in enumerate(dataloader):
         # encoder_3d.eval(); decoder.eval(); rotate.eval(); encoder_traj.eval();
         encoder_3d.eval(); decoder.eval(); rotate.eval();
-        fend = 30
-        vid_clips = data[0].cuda()[:,:fend]
+        # fend = 6
+        vid_clips = data[0].cuda()
         gt_traj = data[1].cuda()
         b, t, c, h, w = vid_clips.size()
         clips = vid_clips.view(b * t, c, h, w)
@@ -134,16 +134,16 @@ def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_in
                 preds.append(clips[0:1])
                 scene_rep = encoder_3d(vid_clips.flatten(0,1))  # Only use T=0. Size: B x c x h x w x d
                 H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
-                scene_index = 0
+                # scene_index = 0
                 # affine
                 theta = gt_traj[:, t:].reshape(b*t, 3, 4)
                 rot_codes_inv = rotate(scene_rep, theta).view(b, t, -1, H, W, D)
                 # aggregate
                 rot_codes_inv = rot_codes_inv.sum(dim=1, keepdim=True).view(b, -1, H, W, D)
-            elif i % scene_update_freq == 0:
-                scene_rep = encoder_3d(pred)  # Update scene representation
-                H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
-                scene_index = i
+            # elif i % scene_update_freq == 0:
+            #     scene_rep = encoder_3d(pred)  # Update scene representation
+            #     H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
+            #     scene_index = i
             # clips_in = torch.stack([clips[scene_index], clips[i+1]])
             # pose = get_pose_window(encoder_traj, clips_in)   # 2, 6
             # z = euler2mat(pose[1:])
@@ -190,13 +190,13 @@ class AverageMeter(object):
 def adjust_lr(args, optimizer, epoch, batch, n_b):
     iteration = batch + epoch * n_b
 
-    if iteration <= 75 * args.lr_adj:
+    if iteration <= 8000 * args.lr_adj:
         lr = args.lr
-    elif iteration <= 125 * args.lr_adj:
+    elif iteration <= 16000 * args.lr_adj:
         lr = args.lr * 0.5
-    elif iteration <= 200 * args.lr_adj:
+    elif iteration <= 24000 * args.lr_adj:
         lr = args.lr * 0.25
-    elif iteration <= 250 * args.lr_adj:
+    elif iteration <= 30000 * args.lr_adj:
         lr = args.lr * 0.125
     else:
         lr = args.lr * 0.0625
