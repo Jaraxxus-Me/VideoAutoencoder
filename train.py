@@ -54,8 +54,12 @@ def main():
     decoder = nn.DataParallel(decoder).cuda()
     netd = nn.DataParallel(netd).cuda()
 
-    all_param = list(rotate_inv.parameters()) + list(encoder_3d.parameters()) + \
+    fix_param = list(encoder_3d.parameters()) + \
                 list(decoder.parameters()) + list(rotate.parameters())
+    for p in fix_param:
+        p.requires_grad=False
+
+    all_param = list(rotate_inv.parameters())
 
     optimizer_g = torch.optim.Adam(all_param, lr=args.lr, betas=(0,0.999))
     optimizer_d = torch.optim.Adam(netd.parameters(), lr=args.d_lr, betas=(0,0.999))
@@ -138,13 +142,13 @@ def train(TrainLoader, ValidLoader,
 
             log.info("Saving new checkpoint.")
             savefilename = args.savepath + '/checkpoint.tar'
-            save_checkpoint(encoder_3d, rotate, decoder, savefilename)
+            save_checkpoint(encoder_3d, rotate, rotate_inv, decoder, savefilename)
             global cur_max_psnr
             if avg_psnr > cur_max_psnr:
                 log.info("Saving new best checkpoint.")
                 cur_max_psnr = avg_psnr
                 savefilename = args.savepath + '/checkpoint_best.tar'
-                save_checkpoint(encoder_3d, rotate, decoder, savefilename)
+                save_checkpoint(encoder_3d, rotate, rotate_inv, decoder, savefilename)
 
 def test_reconstruction(dataloader, encoder_3d, decoder, rotate, rotate_inv, log, epoch, n_iter, writer):
     _loss = AverageMeter()

@@ -122,7 +122,10 @@ class MaskedImageFloder(data.Dataset):
             log.info('Start constructing object camera and size')
             self.cam = {}
             self.obj_sz = {}
-            video_paths = sorted(glob(config[self.dataset]['train_path']+'/*/'))
+            if self.is_train:
+                video_paths = sorted(glob(config[self.dataset]['train_path']+'/*/'))
+            else:
+                video_paths = sorted(glob(config[self.dataset]['test_path']+'/*/'))
             for v in video_paths:
                 obj_id = v.split('/')[-2]
                 log.info('OBJ {}/{}'.format(obj_id, len(video_paths)))

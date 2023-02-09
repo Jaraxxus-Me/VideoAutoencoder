@@ -8,10 +8,9 @@ RealEstate10K:
 
 BOP:
   name: BOP
-  train_path: /home/airlab/storage/airlab/VideoAutoencoder/BOP/train/ycb2
-  test_path: /home/airlab/storage/airlab/VideoAutoencoder/BOP/train/ycb2
-  mask_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/obj_000002/mask
-  cam_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/obj_000002/scene_camera.json
+  test_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/
+  cam_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/scene_camera_all.json
+  sz_path: /home/airlab/storage/airlab/bop_data/ycbv/test_video/sz.npz
   input_size: 256
 
 OWID:
