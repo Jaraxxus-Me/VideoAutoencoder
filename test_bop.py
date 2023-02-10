@@ -32,7 +32,7 @@ def main():
     for key, value in sorted(vars(args).items()):
         log.info(str(key) + ': ' + str(value))
 
-    TestData, _ = D.dataloader(args.dataset, 1, args.interval, n_valid=0,
+    _, TestData = D.random_dataloader(args.dataset, 6, n_valid=30,
                                is_train=args.train_set, load_all_frames=True)
     TestLoader = DataLoader(DL.MaskedImageFloder(TestData, args.dataset, log, is_train=False),
                             batch_size=1, shuffle=False, num_workers=0)
@@ -96,7 +96,7 @@ def test(data, dataloader, encoder_3d, decoder, rotate, rotate_inv, log):
                 theta = gt_traj[t:].reshape(t, 3, 4)
                 rot_codes_inv = rotate(scene_rep, theta).view(1, t, -1, H, W, D)
                 # aggregate
-                rot_codes_inv = rot_codes_inv.sum(dim=1, keepdim=True).view(1, -1, H, W, D)
+                rot_codes_inv = rot_codes_inv.mean(dim=1, keepdim=True).view(1, -1, H, W, D)
             # elif i % args.reinit_k == 0:
             #     # reinitialize 3d voxel
             #     scene_rep = encoder_3d(pred)

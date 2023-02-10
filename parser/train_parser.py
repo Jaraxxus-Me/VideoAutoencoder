@@ -6,15 +6,15 @@ def train_parser():
     # experiment specifics
     parser.add_argument('--dataset', default='OWID',
                         help='Name of the dataset.')
-    parser.add_argument('--savepath', type=str, default='log/train_local/Try8/OWID_3/',
+    parser.add_argument('--savepath', type=str, default='log/train_local/Try9/OWID_3/',
                         help='Path for checkpoints and logs')
-    parser.add_argument('--resume', type=str, default='log/train_local/Try8/OWID_2/checkpoint_best.tar',
+    parser.add_argument('--resume', type=str, default='',
                         help='Checkpoint file to resume')
     parser.add_argument('--worker', type=int, default=16,
                         help='number of dataloader threads')
 
     # for displays
-    parser.add_argument('--valid_freq', type=int, default=1000,
+    parser.add_argument('--valid_freq', type=int, default=4000,
                         help='frequency of validation')
 
 

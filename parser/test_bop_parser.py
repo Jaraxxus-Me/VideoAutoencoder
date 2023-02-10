@@ -6,9 +6,9 @@ def test_parser():
     # experiment specifics
     parser.add_argument('--dataset', default='BOP',
                         help='Name of the dataset')
-    parser.add_argument('--savepath', type=str, default='log/test/Try8/OWID_3',
+    parser.add_argument('--savepath', type=str, default='log/test/Try9/OWID_3',
                         help='Path for checkpoints and logs')
-    parser.add_argument('--resume', type=str, default='log/train_local/Try8/OWID_3/checkpoint_best.tar',
+    parser.add_argument('--resume', type=str, default='log/train_local/Try9/OWID_3/checkpoint.tar',
                         help='Checkpoint file to resume')
     parser.add_argument('--worker', type=int, default=8,
                         help='number of dataloader threads')

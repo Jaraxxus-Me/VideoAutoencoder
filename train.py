@@ -25,8 +25,8 @@ def main():
     for key, value in sorted(vars(args).items()):
         log.info(str(key) + ': ' + str(value))
 
-    TrainData, _ = D.dataloader(args.dataset, args.clip_length, args.interval)
-    _, ValidData = D.dataloader(args.dataset, args.clip_length, args.interval)
+    TrainData, _ = D.random_dataloader(args.dataset, args.clip_length, n_valid=10, n_subvideo=20)
+    _, ValidData = D.random_dataloader(args.dataset, args.clip_length, load_all_frames=True)
     log.info(f'#Train vid: {len(TrainData)}')
 
     TrainLoader = DataLoader(DL.MaskedImageFloder(TrainData, args.dataset, log),
@@ -54,12 +54,8 @@ def main():
     decoder = nn.DataParallel(decoder).cuda()
     netd = nn.DataParallel(netd).cuda()
 
-    fix_param = list(encoder_3d.parameters()) + \
-                list(decoder.parameters()) + list(rotate.parameters())
-    for p in fix_param:
-        p.requires_grad=False
-
-    all_param = list(rotate_inv.parameters())
+    all_param = list(encoder_3d.parameters()) + \
+                list(decoder.parameters()) + list(rotate.parameters()) + list(rotate_inv.parameters())
 
     optimizer_g = torch.optim.Adam(all_param, lr=args.lr, betas=(0,0.999))
     optimizer_d = torch.optim.Adam(netd.parameters(), lr=args.d_lr, betas=(0,0.999))

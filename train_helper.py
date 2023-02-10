@@ -26,7 +26,7 @@ def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, rotate_inv, d
     theta = gt_traj[:, t:].reshape(b*t, 3, 4)
     rot_codes_inv = rotate(codes, theta).view(b, t, -1, H, W, D)
     # aggregate
-    rot_codes_inv = rot_codes_inv.sum(dim=1, keepdim=True).repeat(1, t, 1, 1, 1, 1).view(b * t, -1, H, W, D)
+    rot_codes_inv = rot_codes_inv.mean(dim=1, keepdim=True).repeat(1, t, 1, 1, 1, 1).view(b * t, -1, H, W, D)
     # inverse affine
     theta = gt_traj[:, :t].reshape(b*t, 3, 4)
     rot_codes_inv = rotate_inv(rot_codes_inv, theta)
@@ -139,7 +139,7 @@ def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_in
                 theta = gt_traj[:, t:].reshape(b*t, 3, 4)
                 rot_codes_inv = rotate(scene_rep, theta).view(b, t, -1, H, W, D)
                 # aggregate
-                rot_codes_inv = rot_codes_inv.sum(dim=1, keepdim=True).view(b, -1, H, W, D)
+                rot_codes_inv = rot_codes_inv.mean(dim=1, keepdim=True).view(b, -1, H, W, D)
             # elif i % scene_update_freq == 0:
             #     scene_rep = encoder_3d(pred)  # Update scene representation
             #     H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
