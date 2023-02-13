@@ -10,9 +10,9 @@ from models.submodule import VGGPerceptualLoss, stn
 perceptual_loss = VGGPerceptualLoss()
 perceptual_loss = nn.DataParallel(perceptual_loss).cuda()
 
-def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, rotate_inv, decoder, clips, return_output=False):
-    b, t, c, h, w = clips.size()
-    codes = encoder_3d(clips.flatten(0, 1))
+def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, rotate_inv, decoder, input_clip, target_clip, return_output=False):
+    b, t, c, h, w = input_clip.size()
+    codes = encoder_3d(input_clip.flatten(0, 1))
     _,C,H,W,D = codes.size()
     # code_t = codes.unsqueeze(1).repeat(1, t, 1, 1, 1, 1).view(b * t, C, H, W, D)
 
@@ -34,7 +34,7 @@ def compute_reconstruction_loss(args, encoder_3d, gt_traj, rotate, rotate_inv, d
     output = decoder(rot_codes_inv)
 
     output = F.interpolate(output, (h, w), mode='bilinear')
-    target = clips.view(b*t, c, h, w)
+    target = target_clip.view(b*t, c, h, w)
     loss_perceptual = perceptual_loss(output, target)
     residual = output - target
     # residual = residual.view(b, t, c, h, w)
@@ -118,25 +118,26 @@ def get_pose_window(theta, clip_in):
 def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_inv, log, n_iter):
     n_b = len(dataloader)
     n_eval_video = 20
-    scene_update_freq = 6
     for b_i, data in enumerate(dataloader):
         # encoder_3d.eval(); decoder.eval(); rotate.eval(); encoder_traj.eval();
         encoder_3d.eval(); decoder.eval(); rotate.eval();
-        # fend = 6
-        vid_clips = data[0].cuda()
-        gt_traj = data[1].cuda()
-        b, t, c, h, w = vid_clips.size()
-        clips = vid_clips.view(b * t, c, h, w)
+        # data
+        input_clip = data[1].cuda()
+        gt_traj = data[2].cuda()
+        target_clip = data[3].cuda()
+        # 
+        b, t, c, h, w = input_clip.size()
+        n = target_clip.shape[1]
         preds = []
-        for i in range(t-1):
+        for i in range(n):
             if i == 0:
-                preds = []
-                preds.append(clips[0:1])
-                scene_rep = encoder_3d(vid_clips.flatten(0,1))  # Only use T=0. Size: B x c x h x w x d
+                # preds = []
+                # preds.append(clips[0:1])
+                scene_rep = encoder_3d(input_clip.flatten(0,1))  # Only use T=0. Size: B x c x h x w x d
                 H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
                 # scene_index = 0
                 # affine
-                theta = gt_traj[:, t:].reshape(b*t, 3, 4)
+                theta = gt_traj[:, n:].reshape(b*t, 3, 4)
                 rot_codes_inv = rotate(scene_rep, theta).view(b, t, -1, H, W, D)
                 # aggregate
                 rot_codes_inv = rot_codes_inv.mean(dim=1, keepdim=True).view(b, -1, H, W, D)
@@ -148,7 +149,7 @@ def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_in
             # pose = get_pose_window(encoder_traj, clips_in)   # 2, 6
             # z = euler2mat(pose[1:])
             # inverse affine
-            theta = gt_traj[:, :t][:, i+1]
+            theta = gt_traj[:, :n][:, i]
             rot_codes_local = rotate_inv(rot_codes_inv, theta)
             # decode
             output = decoder(rot_codes_local)
@@ -162,7 +163,7 @@ def visualize_synthesis(args, dataloader, encoder_3d, decoder, rotate, rotate_in
         ###### Output
         save_dir = os.path.join(args.savepath, 'eval_videos', f"iter_{n_iter//1000}k")
         os.makedirs(save_dir, exist_ok=True)
-        vid = (clips.permute(0,2,3,1) * 255).byte().cpu()
+        vid = (target_clip[0].permute(0,2,3,1) * 255).byte().cpu()
         io.write_video(save_dir+'/eval_video_{}_true.mp4'.format(b_i), vid, 6)
         pred = (preds.permute(0,2,3,1) * 255).byte().cpu()
         io.write_video(save_dir+'/eval_video_{}_pred.mp4'.format(b_i), pred, 6)

@@ -81,19 +81,22 @@ def test(data, dataloader, encoder_3d, decoder, rotate, rotate_inv, log):
         decoder.eval()
         rotate.eval()
 
-        clip = data[0][0].cuda()
-        gt_traj = data[1][0].cuda()
-        t, c, h, w = clip.size()
+        input_ids = data[0][0]
+        input_clip = data[1][0].cuda()
+        gt_traj = data[2][0].cuda()
+        target_clip = data[3][0].cuda()
+        t, c, h, w = input_clip.size()
+        n = target_clip.shape[0]
 
         preds = []
-        for i in range(t-1):
+        for i in range(n):
             if i == 0:
-                preds.append(clip[0:1])
-                scene_rep = encoder_3d(clip)
+                # preds.append(input_clip[0:1])
+                scene_rep = encoder_3d(input_clip)
                 H, W, D = scene_rep.shape[2], scene_rep.shape[3], scene_rep.shape[4]
                 # scene_index = 0
                 # affine
-                theta = gt_traj[t:].reshape(t, 3, 4)
+                theta = gt_traj[n:].reshape(t, 3, 4)
                 rot_codes_inv = rotate(scene_rep, theta).view(1, t, -1, H, W, D)
                 # aggregate
                 rot_codes_inv = rot_codes_inv.mean(dim=1, keepdim=True).view(1, -1, H, W, D)
@@ -101,7 +104,7 @@ def test(data, dataloader, encoder_3d, decoder, rotate, rotate_inv, log):
             #     # reinitialize 3d voxel
             #     scene_rep = encoder_3d(pred)
             #     scene_index = i
-            theta = gt_traj[:t][i+1].unsqueeze(0)
+            theta = gt_traj[:n][i].unsqueeze(0)
             rot_codes_local = rotate_inv(rot_codes_inv, theta)
             # decode
             output = decoder(rot_codes_local)
@@ -115,7 +118,7 @@ def test(data, dataloader, encoder_3d, decoder, rotate, rotate_inv, log):
         preds = torch.cat(preds,dim=0)
         pred = (preds.permute(0,2,3,1) * 255).byte().cpu()
         io.write_video(synth_save_dir+f'/video_{b_i}_pred.mp4', pred, 6)
-        vid = (clip.permute(0,2,3,1) * 255).byte().cpu()
+        vid = (target_clip.permute(0,2,3,1) * 255).byte().cpu()
         io.write_video(synth_save_dir+f'/video_{b_i}_true.mp4', vid, 6)
     print()
 

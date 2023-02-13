@@ -6,7 +6,7 @@ def train_parser():
     # experiment specifics
     parser.add_argument('--dataset', default='OWID',
                         help='Name of the dataset.')
-    parser.add_argument('--savepath', type=str, default='log/train_local/Try9/OWID_3/',
+    parser.add_argument('--savepath', type=str, default='log/train_local/Try10/OWID_0/',
                         help='Path for checkpoints and logs')
     parser.add_argument('--resume', type=str, default='',
                         help='Checkpoint file to resume')

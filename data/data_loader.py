@@ -91,6 +91,37 @@ def cam2pose_rel(cam, ids):
     rela_pose = torch.cat([rela_pose_1, rela_pose_t], dim=0)
     return rela_pose
 
+def cam2pose_rel_unseen(cam, ids, is_train):
+    # relative to the first frame, all poses
+    if not is_train:
+        all_ids = list(range(160))
+    else:
+        all_ids = np.random.choice(40, 6, replace=True)
+    rela_r = torch.eye(3).unsqueeze(0).repeat(len(all_ids), 1, 1)
+    rela_t = torch.zeros((len(all_ids), 3, 1))
+    pre_r = torch.Tensor(cam[str(ids[0])]["cam_R_w2c"]).reshape(3, 3)
+    pre_t = torch.Tensor(cam[str(ids[0])]["cam_t_w2c"]).reshape(3, 1)
+    for i, img_id in enumerate(all_ids):
+        curr_r = torch.Tensor(cam[str(img_id)]["cam_R_w2c"]).reshape(3, 3)
+        curr_t = torch.Tensor(cam[str(img_id)]["cam_t_w2c"]).reshape(3, 1)
+        rela_r[i] = curr_r @ pre_r.T
+        # rela_t[i, :] = curr_t - pre_t
+    rela_pose_1 = torch.cat([rela_r, rela_t], dim=-1)
+    # relative to the first frame, inverse, seen poses
+    rela_r = torch.eye(3).unsqueeze(0).repeat(len(ids), 1, 1)
+    rela_t = torch.zeros((len(ids), 3, 1))
+    pre_r = torch.Tensor(cam[str(ids[0])]["cam_R_w2c"]).reshape(3, 3)
+    pre_t = torch.Tensor(cam[str(ids[0])]["cam_t_w2c"]).reshape(3, 1)
+    for i, img_id in enumerate(ids):
+        curr_r = torch.Tensor(cam[str(img_id)]["cam_R_w2c"]).reshape(3, 3)
+        curr_t = torch.Tensor(cam[str(img_id)]["cam_t_w2c"]).reshape(3, 1)
+        rela_r[i] = (curr_r @ pre_r.T).T
+        # rela_t[i, :] = curr_t - pre_t
+    rela_pose_t = torch.cat([rela_r, rela_t], dim=-1)
+    # both input
+    rela_pose = torch.cat([rela_pose_1, rela_pose_t], dim=0)
+    return rela_pose, all_ids
+
 class ImageFloder(data.Dataset):
     def __init__(self, data, dataset, is_train=True):
         self.imagefiles = data
@@ -109,10 +140,11 @@ class ImageFloder(data.Dataset):
         return len(self.imagefiles)
 
 class MaskedImageFloder(data.Dataset):
-    def __init__(self, data, dataset, log, is_train=True):
+    def __init__(self, data, dataset, log, unseen_pose=True, is_train=True):
         self.imagefiles = data
         self.is_train = is_train
         self.dataset = dataset
+        self.unseen_pose = unseen_pose
         if os.path.isfile(config[self.dataset]['sz_path']):
             log.info('Loading object camera and size from existing path')
             self.obj_sz = np.load(config[self.dataset]['sz_path'], allow_pickle=True)['arr_0'].item()
@@ -149,9 +181,19 @@ class MaskedImageFloder(data.Dataset):
         images_rgb = masked_rgb_preprocess(mask_images)
         # poses
         imgids = [int(f.split('/')[-1][0:-4]) for f in imageset]
-        rela_traj = cam2pose_rel(self.cam[obj_id], imgids)
+        if not self.unseen_pose:
+            rela_traj = cam2pose_rel(self.cam[obj_id], imgids)
+            return images_rgb, rela_traj
+        else:
+            rela_traj, unseen_imgids = cam2pose_rel_unseen(self.cam[obj_id], imgids, self.is_train)
+            # all imgs
+            id0 = self.imagefiles[index][0].split('/')[-1][:-4]
+            all_imageset = [self.imagefiles[index][0].replace(id0, '{:06d}'.format(ids)) for ids in unseen_imgids]
+            all_maskset = [f.replace('rgb', 'mask') for f in all_imageset]
+            all_mask_images = [crop_image_loader(all_imageset[img_id], all_maskset[img_id], self.obj_sz[obj_id], input_size) for img_id in range(len(all_imageset))]
+            all_images_rgb = masked_rgb_preprocess(all_mask_images)
 
-        return images_rgb, rela_traj
+            return imgids, images_rgb, rela_traj, all_images_rgb
 
     def __len__(self):
         return len(self.imagefiles)

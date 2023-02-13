@@ -102,14 +102,16 @@ def train(TrainLoader, ValidLoader,
 
         adjust_lr(args, optimizer_g, epoch, b_i, n_b)
         adjust_lr(args, optimizer_d, epoch, b_i, n_b)
-        vid_clips = data[0].cuda()
-        gt_traj = data[1].cuda()
+        # input_ids = data[0]
+        input_clip = data[1].cuda()
+        gt_traj = data[2].cuda()
+        target_clip = data[3].cuda()
         n_iter = b_i + n_b * epoch
 
         optimizer_g.zero_grad()
 
         l_r, fake_clips = compute_reconstruction_loss(args, encoder_3d, gt_traj,
-                                                       rotate, rotate_inv, decoder, vid_clips, return_output=True)
+                                                       rotate, rotate_inv, decoder, input_clip, target_clip, return_output=True)
         # l_c = compute_consistency_loss(args, encoder_3d, gt_traj, vid_clips)
         l_g = compute_gan_loss(netd, fake_clips)
         sum_loss = l_r + args.lambda_gan * l_g
@@ -118,7 +120,7 @@ def train(TrainLoader, ValidLoader,
 
         # train netd
         optimizer_d.zero_grad()
-        l_d = train_netd(args, netd, vid_clips, fake_clips, optimizer_d)
+        l_d = train_netd(args, netd, target_clip, fake_clips, optimizer_d)
 
         _loss.update(sum_loss.item())
         batch_time = time.perf_counter() - b_s
@@ -155,12 +157,12 @@ def test_reconstruction(dataloader, encoder_3d, decoder, rotate, rotate_inv, log
         decoder.eval()
         rotate.eval()
         b_s = time.perf_counter()
-        vid_clips = data[0].cuda()
-        gt_traj = data[1].cuda()
-        vid_clips = vid_clips.cuda()
+        input_clip = data[1].cuda()
+        gt_traj = data[2].cuda()
+        target_clip = data[3].cuda()
         with torch.no_grad():
             l_r = compute_reconstruction_loss(args, encoder_3d, gt_traj,
-                                              rotate, rotate_inv, decoder, vid_clips)
+                                            rotate, rotate_inv, decoder, input_clip, target_clip, return_output=False)
         writer.add_scalar('Reconstruction Loss (Valid)', l_r, n_iter)
         _loss.update(l_r.item())
         info = 'Loss = {:.3f}({:.3f})'.format(_loss.val, _loss.avg)
